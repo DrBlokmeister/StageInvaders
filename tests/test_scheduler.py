@@ -45,3 +45,16 @@ def test_handles_edge_touching_shows():
     schedule = generate_schedule(shows)
     assert len(schedule) == _min_stages(shows)
     assert all(_stage_is_valid(s) for s in schedule.values())
+
+
+def test_print_schedule_uses_stage_names(tmp_path, capsys):
+    import schedule_generator as sg
+
+    stage_file = tmp_path / "names.py"
+    stage_file.write_text("STAGE_NAMES = ['Alpha Arena', 'Beta Base']")
+
+    sg.main(["--input", "input_shows.py", "--stage-names", str(stage_file)])
+
+    out = capsys.readouterr().out.splitlines()
+    assert out[0] == "Alpha Arena:"
+    assert out[3] == "Beta Base:"
