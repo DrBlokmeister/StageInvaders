@@ -10,9 +10,74 @@ from __future__ import annotations
 import argparse
 import json
 import importlib.util
+import random
 from heapq import heappush, heappop
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
+
+stage_prefixes = [
+    "Heisenberg",
+    "Optical",
+    "Qubit",
+    "Cryo",
+    "Flux",
+    "Kelvin",
+    "Servo",
+    "Photon",
+    "Plasma",
+    "Gripper",
+    "Ampere",
+    "Hydrogen",
+    "Quantum",
+    "DICE",
+    "Nano",
+    "Circuit",
+    "Magnetron",
+    "Molten",
+    "PhaseShift",
+    "Thorizon",
+]
+
+stage_suffixes = [
+    "Dome",
+    "Colosseum",
+    "Planetarium",
+    "Lab",
+    "Core",
+    "Reactor",
+    "Arena",
+    "Theatre",
+    "Chamber",
+    "Nest",
+    "Generator",
+    "Loop",
+    "Vortex",
+    "Box",
+    "Sanctum",
+    "Station",
+    "Pit",
+    "Quadrant",
+    "Yard",
+    "Cage",
+]
+
+main_stages = [
+    "The Quantum Nexus",
+    "The Mechatronic Arena",
+    "The Reactor of Legends",
+    "The Core Stage",
+    "The Dome of Infinity",
+]
+
+
+def _random_stage_name() -> str:
+    return f"{random.choice(stage_prefixes)} {random.choice(stage_suffixes)}"
+
+
+STAGE_NAMES = [random.choice(main_stages)] + [
+    _random_stage_name() for _ in range(19)
+]
+
 
 Show = Tuple[str, float, float]
 Schedule = Dict[int, List[Show]]
@@ -74,6 +139,24 @@ def load_shows(path: str) -> List[Show]:
             return [tuple(show) for show in json.load(f)]
 
 
+def load_stage_names(path: str) -> List[str]:
+    """Load stage names from a Python module or JSON file."""
+    file_path = Path(path)
+    if file_path.suffix == ".py":
+        spec = importlib.util.spec_from_file_location("stage_names_module", file_path)
+        if not spec or not spec.loader:
+            raise ImportError(f"Cannot load module from {path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        names = getattr(module, "STAGE_NAMES", None)
+        if names is None:
+            raise AttributeError(f"Module {path} does not define 'STAGE_NAMES'")
+        return list(names)
+    else:
+        with file_path.open() as f:
+            return list(json.load(f))
+
+
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -86,19 +169,33 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         "--output",
         help="Optional path to write the resulting schedule as JSON.",
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--stage-names",
+        help="Optional path to a Python or JSON file providing stage names.",
+    )
+    args = parser.parse_args(argv)
+    if args.stage_names:
+        args.stage_names = load_stage_names(args.stage_names)
+    return args
 
 
 def print_schedule(schedule: Schedule) -> None:
     """Pretty-print the schedule to the terminal."""
     for stage in sorted(schedule):
-        print(f"Stage {stage}:")
+        if stage - 1 < len(STAGE_NAMES):
+            stage_name = STAGE_NAMES[stage - 1]
+        else:
+            stage_name = f"Stage {stage}"
+        print(f"{stage_name}:")
         for name, start, end in schedule[stage]:
             print(f"  {name}: {start} - {end}")
 
 
 def main(argv: Iterable[str] | None = None) -> None:
+    global STAGE_NAMES
     args = parse_args(argv)
+    if args.stage_names:
+        STAGE_NAMES = args.stage_names
     shows = load_shows(args.input)
     schedule = generate_schedule(shows)
     print_schedule(schedule)
